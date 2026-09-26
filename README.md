@@ -33,7 +33,7 @@ App para concentrar **todos os seus dados de saúde** em um só lugar: alimenta�
 
 ### Publicação no GitHub Pages
 
-O workflow `.github/workflows/ci.yml` roda os testes e o build em cada PR e publica o app a cada push na `main`. Para ativar, no GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**. O endereço fica parecido com `https://<usuario>.github.io/<repositorio>/`.
+O workflow `.github/workflows/ci.yml` roda os testes e o build em cada push e PR, e publica o app a cada push na branch padrão do repositório. Para ativar, no GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions** (em conta gratuita, o repositório precisa ser público). O endereço fica parecido com `https://<usuario>.github.io/<repositorio>/`.
 
 ## Desenvolvimento
 
