@@ -1,10 +1,10 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Caminhos relativos para funcionar em qualquer subpasta (ex.: GitHub Pages).
+// App Treino: publicado em /treino/, ao lado do Minha Saúde, com manifesto e service worker próprios.
 export default defineConfig({
+  root: 'treino',
   base: './',
   plugins: [
     react(),
@@ -12,17 +12,18 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Minha Saúde',
-        short_name: 'Minha Saúde',
+        id: './',
+        name: 'Treino — braços e fascite plantar',
+        short_name: 'Treino',
         description:
-          'Todos os seus dados de saúde em um só lugar: alimentação, calorias, consultas, visão, remédios, exames e vacinas.',
+          'Treinos de até 1 hora: 15 min de aquecimento, exercícios para fascite plantar e foco no desenvolvimento dos braços. Sincroniza entre celular e computador.',
         lang: 'pt-BR',
         start_url: './',
         scope: './',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         background_color: '#f9f9f7',
-        theme_color: '#2a78d6',
+        theme_color: '#6b3fd4',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -31,20 +32,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
-        // Abre o app ao tocar em uma notificação.
-        importScripts: ['sw-notifications.js'],
-        // O app Treino (em /treino/) tem service worker próprio.
-        globIgnores: ['treino/**'],
-        navigateFallbackDenylist: [/\/treino\b/],
       },
     }),
   ],
   build: {
-    // O app inteiro fica em cache para uso offline; um único pacote é aceitável.
+    outDir: '../dist/treino',
+    emptyOutDir: true,
     chunkSizeWarningLimit: 800,
-  },
-  test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts', 'treino/src/**/*.test.ts'],
   },
 });

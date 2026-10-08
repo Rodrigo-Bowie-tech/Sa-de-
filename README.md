@@ -35,15 +35,34 @@ App para concentrar **todos os seus dados de saúde** em um só lugar: alimenta�
 
 O workflow `.github/workflows/ci.yml` roda os testes e o build em cada push e PR, e publica o app a cada push na branch padrão do repositório. Para ativar, no GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions** (em conta gratuita, o repositório precisa ser público). O endereço fica parecido com `https://<usuario>.github.io/<repositorio>/`.
 
+## App Treino (`/treino/`)
+
+Segundo app instalável, publicado junto com o Minha Saúde em `https://<usuario>.github.io/<repositorio>/treino/`, com ícone, manifesto e service worker próprios. Feito para treinos de **até 1 hora**, com foco no **desenvolvimento dos braços** e exercícios para **fascite plantar**.
+
+| Área | Recursos |
+| --- | --- |
+| **Treino de hoje** | Monta o treino sozinho: **15 min de aquecimento** sem impacto (sem pulos, para proteger o calcanhar), bloco de **fascite plantar** (alongamento da fáscia e da panturrilha em todo treino, elevação de calcanhar com toalha em treinos alternados, massagem com bolinha/garrafa gelada, toalha com os dedos, pé curto etc.), **braços** (bíceps, tríceps, ombros, antebraço) e alongamento final. Duração de 30, 45 ou 60 min; os exercícios variam de um treino para o outro. |
+| **Durante o treino** | Cronômetro com contagem regressiva, voz anunciando cada exercício, bipes, vibração e tela sempre ligada. Séries com registro de repetições e carga e descanso automático. **Limite de 1 hora**: avisos aos 50 e 55 min, atalho para o alongamento final e encerramento automático aos 60 min (pausas não contam). |
+| **Progressão** | Meta de cada série pela última vez que você fez o exercício: mantém o peso até completar o máximo de repetições em todas as séries, depois sugere subir o peso. |
+| **Histórico** | Treinos, gráfico de evolução de carga por exercício e da dor no pé (0 a 10, registrada ao fim de cada treino). |
+| **Exercícios** | Biblioteca com passo a passo, ritmo, material, dicas e cuidados de cada exercício, e orientações gerais para a fascite. Funciona com halteres, elástico, barra fixa ou sem equipamento (peso do corpo, cadeira, toalha, mochila, garrafas). |
+| **Perfis com PIN** | Cada pessoa tem seu perfil (nome + PIN de 4 a 8 números), com treinos, histórico, ajustes, treino em andamento e progressão próprios. Ao abrir o app, escolha o perfil e digite o PIN; o login fica salvo no aparelho até tocar em **Sair**. Depois de 5 PINs errados, o app espera 30 s. Em **Ajustes → Perfil**: trocar nome e PIN, sair/trocar de perfil e excluir o perfil (apaga os treinos dele em todos os aparelhos). |
+| **Sincronização** | Celular e computador com os mesmos perfis, treinos e ajustes. Os dados de todos os perfis ficam numa **gist secreta da sua conta do GitHub** (sem servidor próprio): crie um token com a permissão `gist`, cole em **Ajustes → Sincronização** e conecte os outros aparelhos pelo **código QR** ou colando o código. Sincroniza ao abrir o app, após cada alteração e a cada 5 min; funciona offline e envia depois. |
+
+> **Sobre o PIN:** ele separa os perfis dentro do app, mas os dados de todos os perfis ficam juntos na mesma gist (o PIN é guardado só como hash). Quem tiver o token ou o código de conexão da sincronização consegue redefinir um PIN esquecido (“Esqueci o PIN”).
+>
+> No iPhone, o app instalado na Tela de Início não compartilha dados com o Safari: conecte a sincronização de dentro do app instalado (colando o código). As orientações sobre fascite são gerais e não substituem a avaliação de um médico ou fisioterapeuta.
+
 ## Desenvolvimento
 
 Requer Node.js 22+.
 
 ```bash
 npm install
-npm run dev        # servidor de desenvolvimento
+npm run dev        # servidor de desenvolvimento (Minha Saúde)
+npm run dev:treino # servidor de desenvolvimento (Treino)
 npm test           # testes (cálculos, alertas, calendário, backup)
-npm run build      # verificação de tipos + build de produção em dist/
+npm run build      # verificação de tipos + build de produção em dist/ (e dist/treino/)
 npm run preview    # serve o build localmente
 ```
 
@@ -57,4 +76,5 @@ src/
   components/  componentes de interface (modal, formulários, gráficos)
   hooks/       perfil, agendador de alertas, instalação
   pages/       telas do app
+treino/        app Treino (index.html, ícones e src/ com dados, regras, telas e testes)
 ```
