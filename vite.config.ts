@@ -33,7 +33,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         // Abre o app ao tocar em uma notificação.
         importScripts: ['sw-notifications.js'],
-        // O app Treino (em /treino/) tem service worker próprio.
+        // /treino/ só tem o aviso de mudança de endereço do app Treino (que agora é outro repositório).
         globIgnores: ['treino/**'],
         navigateFallbackDenylist: [/\/treino\b/],
       },
@@ -45,6 +45,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'treino/src/**/*.test.ts'],
+    include: ['src/**/*.test.ts'],
   },
 });

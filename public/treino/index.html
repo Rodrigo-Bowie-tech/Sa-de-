@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Treino mudou de endereço</title>
+    <!-- O app Treino agora tem repositório e endereço próprios, fora do endereço do Minha Saúde. -->
+    <meta http-equiv="refresh" content="3; url=../../treino/" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: #f9f9f7;
+        color: #0b0b0b;
+        text-align: center;
+      }
+      a {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 12px 20px;
+        border-radius: 999px;
+        background: #6b3fd4;
+        color: #fff;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      p {
+        color: #52514e;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0d0d0d;
+          color: #fff;
+        }
+        p {
+          color: #c3c2b7;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>O Treino mudou de endereço</h1>
+      <p>Agora ele é um app separado do Minha Saúde. Abrindo o endereço novo…</p>
+      <a id="novo" href="../../treino/">Abrir o Treino</a>
+    </main>
+    <script>
+      // Endereço novo no mesmo site (https://rodrigo-bowie-tech.github.io/treino/), levando junto o
+      // que vem depois do # (ex.: o código de conexão da sincronização).
+      var destino = location.origin + '/treino/' + location.hash;
+      document.getElementById('novo').href = destino;
+      location.replace(destino);
+    </script>
+  </body>
+</html>
