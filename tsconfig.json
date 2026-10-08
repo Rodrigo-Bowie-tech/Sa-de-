@@ -15,5 +15,5 @@
     "noEmit": true,
     "types": ["vite/client", "vite-plugin-pwa/client"]
   },
-  "include": ["src", "treino/src", "vite.config.ts", "vite.treino.config.ts"]
+  "include": ["src", "vite.config.ts"]
 }

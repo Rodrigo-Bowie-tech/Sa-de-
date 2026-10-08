@@ -7,7 +7,8 @@ import type { ActivityLevel, Profile, Sex, WeightGoal } from '../db/types';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { useToasts } from '../components/Toasts';
-import { isStandalone, useInstallPrompt } from '../hooks/useInstallPrompt';
+import { openInstallDialog } from '../components/InstallDialog';
+import { isStandalone } from '../hooks/useInstallPrompt';
 import { clearAll, exportBackup, parseBackup, restoreBackup } from '../lib/backup';
 import { ageOn, todayKey } from '../lib/dates';
 import { downloadFile } from '../lib/download';
@@ -322,7 +323,6 @@ function AppearanceCard() {
 function DataCard() {
   const { notify } = useToasts();
   const fileRef = useRef<HTMLInputElement>(null);
-  const install = useInstallPrompt();
 
   const doExport = async () => {
     const backup = await exportBackup(db);
@@ -381,18 +381,13 @@ function DataCard() {
         <div className="alert">
           <Smartphone className="alert-icon" size={20} aria-hidden />
           <div className="alert-body">
-            <strong>Instale o app no celular</strong>
-            <span>
-              Android: menu ⋮ do Chrome → “Instalar app”. iPhone: botão Compartilhar do Safari → “Adicionar à Tela de
-              Início”. Assim ele abre como um aplicativo e funciona sem internet.
-            </span>
-            {install && (
-              <div className="btn-row" style={{ marginTop: 6 }}>
-                <button type="button" className="btn small" onClick={install}>
-                  Instalar agora
-                </button>
-              </div>
-            )}
+            <strong>Instale o app no celular ou no computador</strong>
+            <span>Assim ele abre pelo ícone, como um aplicativo, e funciona sem internet.</span>
+            <div className="btn-row" style={{ marginTop: 6 }}>
+              <button type="button" className="btn small" onClick={openInstallDialog}>
+                <Download size={16} /> Baixar e instalar
+              </button>
+            </div>
           </div>
         </div>
       )}
