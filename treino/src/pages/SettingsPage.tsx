@@ -5,7 +5,7 @@ import { useToasts } from '../../../src/components/Toasts';
 import { isStandalone, useInstallPrompt } from '../../../src/hooks/useInstallPrompt';
 import { downloadFile } from '../../../src/lib/download';
 import { toDateKey } from '../../../src/lib/dates';
-import { getTheme, setTheme, type ThemeChoice } from '../../../src/lib/theme';
+import { getTheme, setTheme, type ThemeChoice } from '../lib/theme';
 import { ProfileCard } from '../components/ProfileCard';
 import { SyncCard } from '../components/SyncCard';
 import { TrainingSettings } from '../components/TrainingSettings';

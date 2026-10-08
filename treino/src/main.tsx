@@ -5,12 +5,12 @@ import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import { ToastProvider } from '../../src/components/Toasts';
 import { listenForInstallPrompt } from '../../src/hooks/useInstallPrompt';
-import { applyTheme } from '../../src/lib/theme';
+import { applyTreinoTheme } from './lib/theme';
 import { startAutoSync } from './lib/syncEngine';
 import '../../src/styles.css';
 import './treino.css';
 
-applyTheme();
+applyTreinoTheme();
 listenForInstallPrompt();
 registerSW({ immediate: true });
 startAutoSync();
