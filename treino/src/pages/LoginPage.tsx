@@ -6,7 +6,7 @@ import { Avatar, PinField } from '../components/PinField';
 import { SyncCard } from '../components/SyncCard';
 import { createProfile, db, updateProfile } from '../db';
 import { useProfiles, useSyncStatus } from '../hooks/data';
-import { formatDate } from '../../../src/lib/dates';
+import { formatDateTime } from '../../../src/lib/dates';
 import {
   MAX_ATTEMPTS,
   NAME_MAX,
@@ -21,7 +21,7 @@ import {
   verifyPin,
 } from '../lib/profiles';
 import { parseConnectInput } from '../lib/sync';
-import { getConfig, syncNow } from '../lib/syncEngine';
+import { getConfig, getSyncStatus, syncNow } from '../lib/syncEngine';
 import type { Profile } from '../types';
 
 function CreateProfile({ profiles, syncing, onCancel }: { profiles: Profile[]; syncing: boolean; onCancel?: () => void }) {
@@ -31,6 +31,8 @@ function CreateProfile({ profiles, syncing, onCancel }: { profiles: Profile[]; s
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** A sincronização falhou ao criar: na segunda vez, cria mesmo assim. */
+  const [syncFailed, setSyncFailed] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,12 +41,20 @@ function CreateProfile({ profiles, syncing, onCancel }: { profiles: Profile[]; s
     setBusy(true);
     try {
       // Com a sincronização ligada, busca antes os perfis criados em outros aparelhos (evita perfil repetido).
-      if (getConfig()) {
+      if (getConfig() && !syncFailed) {
         await syncNow();
         const sameName = validateName(name, liveProfiles(await db.profiles.toArray()));
         if (sameName) {
           setBusy(false);
           return setError(`${sameName} Ele veio de outro aparelho: entre com ele em vez de criar outro.`);
+        }
+        const syncError = getSyncStatus().error;
+        if (syncError) {
+          setBusy(false);
+          setSyncFailed(true);
+          return setError(
+            `Não deu para sincronizar agora (${syncError}). Se você já tem perfil em outro aparelho, conecte-se à internet e tente de novo; senão, toque em “Criar mesmo assim”.`,
+          );
         }
       }
       const profile = await createProfile(db, name, pin);
@@ -71,7 +81,7 @@ function CreateProfile({ profiles, syncing, onCancel }: { profiles: Profile[]; s
       {syncing && <p className="muted small">Sincronizando… aguarde para ver os perfis que já existem em outros aparelhos.</p>}
       <div className="btn-row">
         <button type="submit" className="btn" disabled={busy || syncing}>
-          {busy ? 'Criando…' : 'Criar perfil'}
+          {busy ? 'Criando…' : syncFailed ? 'Criar mesmo assim' : 'Criar perfil'}
         </button>
         {onCancel && (
           <button type="button" className="btn secondary" onClick={onCancel}>
@@ -260,7 +270,7 @@ export function LoginPage() {
               <button key={p.id} type="button" className="profile-btn" onClick={() => setSelectedId(p.id)}>
                 <Avatar name={p.name} />
                 <span>{p.name}</span>
-                {sameName(p) && <small className="muted">criado em {formatDate(new Date(p.createdAt))}</small>}
+                {sameName(p) && <small className="muted">criado em {formatDateTime(new Date(p.createdAt))}</small>}
               </button>
             ))}
             <button type="button" className="profile-btn add" onClick={() => setCreating(true)}>
