@@ -51,6 +51,18 @@ describe('ajuda para instalar', () => {
     expect(webview.steps.join(' ')).toContain('Abrir no Chrome');
   });
 
+  it('avisa que no iPhone e no Safari do Mac o app instalado guarda os dados à parte', () => {
+    expect(installHelp('Minha Saúde', { userAgent: UA.iphoneSafari }).separateStorage).toBe(true);
+    expect(installHelp('Minha Saúde', { userAgent: UA.ipadDesktopMode, platform: 'MacIntel', maxTouchPoints: 0 }).separateStorage).toBe(true);
+    expect(installHelp('Minha Saúde', { userAgent: UA.androidChrome }).separateStorage).toBeFalsy();
+  });
+
+  it('Opera no Mac não recebe o passo a passo do Safari', () => {
+    const opera =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 OPR/114.0.0.0';
+    expect(installHelp('Minha Saúde', { userAgent: opera }).steps.join(' ')).not.toContain('Dock');
+  });
+
   it('computador: Chrome e Edge instalam; Firefox não', () => {
     expect(installHelp('Minha Saúde', { userAgent: UA.windowsChrome }).platform).toBe('desktop');
     expect(installHelp('Minha Saúde', { userAgent: UA.windowsEdge }).platform).toBe('desktop');

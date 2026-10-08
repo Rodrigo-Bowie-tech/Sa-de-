@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <title>Treino mudou de endereço</title>
-    <!-- O app Treino agora tem repositório e endereço próprios, fora do endereço do Minha Saúde. -->
-    <meta http-equiv="refresh" content="3; url=../../treino/" />
+    <!-- O app Treino agora tem repositório e endereço próprios (/treino/), fora do endereço do Minha Saúde. -->
     <style>
       body {
         margin: 0;
@@ -20,9 +19,15 @@
         color: #0b0b0b;
         text-align: center;
       }
-      a {
+      main {
+        max-width: 420px;
+      }
+      p {
+        color: #52514e;
+      }
+      .btn {
         display: inline-block;
-        margin-top: 16px;
+        margin-top: 12px;
         padding: 12px 20px;
         border-radius: 999px;
         background: #6b3fd4;
@@ -30,8 +35,13 @@
         font-weight: 600;
         text-decoration: none;
       }
-      p {
-        color: #52514e;
+      .secundario {
+        display: block;
+        margin-top: 16px;
+        color: #5128b0;
+      }
+      [hidden] {
+        display: none !important;
       }
       @media (prefers-color-scheme: dark) {
         body {
@@ -41,21 +51,76 @@
         p {
           color: #c3c2b7;
         }
+        .secundario {
+          color: #b9a0f3;
+        }
       }
     </style>
   </head>
   <body>
     <main>
       <h1>O Treino mudou de endereço</h1>
-      <p>Agora ele é um app separado do Minha Saúde. Abrindo o endereço novo…</p>
-      <a id="novo" href="../../treino/">Abrir o Treino</a>
+
+      <div id="abrindo">
+        <p>Agora ele é um app separado do Minha Saúde. Abrindo o endereço novo…</p>
+        <a class="btn" id="link" href="../../treino/">Abrir o Treino</a>
+      </div>
+
+      <div id="em-app" hidden>
+        <p>
+          Este link abriu dentro de outro app (o Minha Saúde ou um ícone antigo do Treino). O Treino agora é um app
+          separado: abra no navegador para usar e instalar o Treino novo.
+        </p>
+        <a class="btn" id="navegador" href="../../treino/" target="_blank" rel="noopener">Abrir no navegador</a>
+        <a class="secundario" id="aqui" href="../../treino/">Continuar aqui mesmo</a>
+        <p>Se tiver um ícone antigo do Treino na tela inicial, pode removê-lo depois de instalar o novo.</p>
+      </div>
+
+      <div id="ainda-nao" hidden>
+        <p>O endereço novo do Treino ainda está sendo publicado. Tente de novo em alguns minutos.</p>
+        <a class="btn" href="" onclick="location.reload(); return false;">Tentar de novo</a>
+      </div>
     </main>
     <script>
-      // Endereço novo no mesmo site (https://rodrigo-bowie-tech.github.io/treino/), levando junto o
-      // que vem depois do # (ex.: o código de conexão da sincronização).
-      var destino = location.origin + '/treino/' + location.hash;
-      document.getElementById('novo').href = destino;
-      location.replace(destino);
+      (function () {
+        // Endereço novo no mesmo site (https://rodrigo-bowie-tech.github.io/treino/), levando junto o que
+        // vem depois do # (ex.: o código de conexão da sincronização).
+        var novo = location.origin + '/treino/';
+        var destino = novo + location.hash;
+        var emApp = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        var show = function (id) {
+          ['abrindo', 'em-app', 'ainda-nao'].forEach(function (s) {
+            document.getElementById(s).hidden = s !== id;
+          });
+        };
+        document.getElementById('link').href = destino;
+        document.getElementById('aqui').href = destino;
+        var navegador = document.getElementById('navegador');
+        if (/Android/.test(navigator.userAgent)) {
+          // Dentro de um app instalado, um link normal continuaria nele: no Android, pede para o Chrome abrir.
+          navegador.href =
+            'intent://' + location.host + '/treino/#Intent;scheme=' + location.protocol.replace(':', '') +
+            ';package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(novo) + ';end';
+          navegador.removeAttribute('target');
+        } else {
+          navegador.href = destino;
+        }
+
+        // Só leva para o endereço novo quando ele já estiver no ar.
+        fetch(novo + 'manifest.webmanifest', { cache: 'no-store' })
+          .then(function (r) {
+            return r.ok;
+          })
+          .catch(function () {
+            return false;
+          })
+          .then(function (noAr) {
+            if (!noAr) return show('ainda-nao');
+            // Aberto dentro de um app instalado (Minha Saúde ou o Treino antigo): o Treino ficaria preso nele.
+            if (emApp) return show('em-app');
+            location.replace(destino);
+          });
+      })();
     </script>
   </body>
 </html>

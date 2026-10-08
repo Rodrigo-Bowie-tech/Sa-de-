@@ -23,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
           iconSrc="./icons/icon-192.png"
           dismissKey="minha-saude:instalar-dispensado"
           quietRoutes={['/ficha']}
+          dataNote="No iPhone, o app instalado começa vazio: antes, faça um backup (Perfil → Seus dados → Fazer backup) e depois restaure dentro do app instalado."
         />
       </ToastProvider>
     </HashRouter>
