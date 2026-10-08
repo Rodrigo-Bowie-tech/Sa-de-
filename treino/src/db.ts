@@ -24,9 +24,6 @@ export class TreinoDB extends Dexie {
 
 export const db = new TreinoDB();
 
-/** Id dos ajustes de antes dos perfis (passam para o primeiro perfil criado). */
-const LEGACY_SETTINGS_ID = 'me';
-
 export function defaultSettings(profileId: string): Settings {
   return {
     id: profileId,
@@ -81,10 +78,6 @@ export async function deleteSession(target: TreinoDB, id: string): Promise<void>
 
 /* ——— Perfis ——— */
 
-/**
- * Cria um perfil. Se for o único perfil, ele fica com os treinos e ajustes
- * de antes dos perfis existirem.
- */
 export async function createProfile(target: TreinoDB, name: string, pin: string): Promise<Profile> {
   const now = Date.now();
   const profile: Profile = {
@@ -94,15 +87,7 @@ export async function createProfile(target: TreinoDB, name: string, pin: string)
     createdAt: new Date(now).toISOString(),
     updatedAt: now,
   };
-  await target.transaction('rw', target.profiles, target.sessions, target.settings, async () => {
-    await target.profiles.put(profile);
-    const others = (await target.profiles.toArray()).filter((p) => !p.deleted && p.id !== profile.id);
-    if (others.length) return;
-    const orphans = (await target.sessions.toArray()).filter((s) => !s.profileId);
-    if (orphans.length) await target.sessions.bulkPut(orphans.map((s) => ({ ...s, profileId: profile.id, updatedAt: now })));
-    const legacy = await target.settings.get(LEGACY_SETTINGS_ID);
-    if (legacy) await target.settings.put({ ...legacy, id: profile.id, updatedAt: now });
-  });
+  await target.profiles.put(profile);
   emitLocalChange();
   return profile;
 }

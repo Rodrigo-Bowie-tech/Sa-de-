@@ -72,13 +72,31 @@ export function stableStringify(value: unknown): string {
 }
 
 /**
- * Qual versão de um registro vence: a alterada por último. Num empate (raro),
- * a comparação do conteúdo garante que todos os aparelhos escolham a mesma.
+ * Qual versão de um registro vence. A exclusão é definitiva: a versão excluída
+ * sempre vence (uma edição atrasada de outro aparelho não traz o registro de
+ * volta). Fora isso, vence a alterada por último; num empate (raro), a
+ * comparação do conteúdo garante que todos os aparelhos escolham a mesma.
  */
-export function isNewer<T extends { updatedAt: number }>(candidate: T, current: T | undefined): boolean {
+export function isNewer<T extends { updatedAt: number; deleted?: boolean }>(candidate: T, current: T | undefined): boolean {
   if (!current) return true;
+  if (!!candidate.deleted !== !!current.deleted) return !!candidate.deleted;
   if (candidate.updatedAt !== current.updatedAt) return candidate.updatedAt > current.updatedAt;
   return stableStringify(candidate) > stableStringify(current);
+}
+
+/** Id dos ajustes nos dados de antes dos perfis (versão 1). */
+export const LEGACY_SETTINGS_ID = 'me';
+
+/**
+ * Backup de antes dos perfis: ao importar, os treinos sem dono e os ajustes
+ * antigos passam para o perfil que está importando.
+ */
+export function adoptLegacy(doc: SyncDoc, profileId: string, now: number): SyncDoc {
+  return {
+    ...doc,
+    settings: doc.settings.map((s) => (s.id === LEGACY_SETTINGS_ID ? { ...s, id: profileId } : s)),
+    sessions: doc.sessions.map((s) => (s.profileId ? s : { ...s, profileId, updatedAt: now })),
+  };
 }
 
 /** Junta duas listas de registros pelo id, ficando com a versão mais nova de cada um. */

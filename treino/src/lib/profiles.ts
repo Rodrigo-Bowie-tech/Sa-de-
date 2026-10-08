@@ -142,3 +142,12 @@ export function subscribeCurrentProfile(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
+
+// Entrar ou sair numa aba vale também para as outras abas abertas do app.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== CURRENT_KEY && e.key !== null) return;
+    current = e.key === null ? undefined : (e.newValue ?? undefined);
+    listeners.forEach((l) => l());
+  });
+}

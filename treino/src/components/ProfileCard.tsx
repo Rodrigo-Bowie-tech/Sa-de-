@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { KeyRound, LogOut, Trash2 } from 'lucide-react';
 import { Modal } from '../../../src/components/Modal';
 import { useToasts } from '../../../src/components/Toasts';
@@ -23,6 +23,10 @@ function ChangePin({ onClose }: { onClose: () => void }) {
     notify({ title: 'PIN alterado', body: 'Vale em todos os aparelhos sincronizados.' });
     onClose();
   };
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void submit();
+  };
 
   return (
     <Modal
@@ -35,18 +39,20 @@ function ChangePin({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn secondary" onClick={onClose}>
             Cancelar
           </button>
-          <button type="button" className="btn" onClick={() => void submit()}>
+          <button type="submit" form="form-trocar-pin" className="btn">
             Salvar
           </button>
         </>
       }
     >
-      <PinField label="PIN atual" value={current} onChange={setCurrent} autoFocus />
-      <div className="form-grid">
-        <PinField label="Novo PIN" value={pin} onChange={setPin} autoComplete="new-password" />
-        <PinField label="Repita o novo PIN" value={confirm} onChange={setConfirm} autoComplete="new-password" />
-      </div>
-      {error && <p className="error">{error}</p>}
+      <form id="form-trocar-pin" className="form" onSubmit={onSubmit}>
+        <PinField label="PIN atual" value={current} onChange={setCurrent} autoFocus />
+        <div className="form-grid">
+          <PinField label="Novo PIN" value={pin} onChange={setPin} autoComplete="new-password" />
+          <PinField label="Repita o novo PIN" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+        </div>
+        {error && <p className="error">{error}</p>}
+      </form>
     </Modal>
   );
 }
@@ -61,6 +67,10 @@ function DeleteProfile({ onClose }: { onClose: () => void }) {
     await deleteProfile(db, profile.id);
     setCurrentProfileId(undefined);
   };
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void submit();
+  };
 
   return (
     <Modal
@@ -73,7 +83,7 @@ function DeleteProfile({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn secondary" onClick={onClose}>
             Cancelar
           </button>
-          <button type="button" className="btn danger" onClick={() => void submit()}>
+          <button type="submit" form="form-excluir-perfil" className="btn danger">
             <Trash2 size={16} aria-hidden /> Excluir
           </button>
         </>
@@ -83,8 +93,10 @@ function DeleteProfile({ onClose }: { onClose: () => void }) {
         O perfil <strong>{profile.name}</strong> e todos os treinos dele serão apagados em todos os aparelhos sincronizados. Isso
         não pode ser desfeito.
       </p>
-      <PinField label="Digite o PIN para confirmar" value={pin} onChange={setPin} autoFocus />
-      {error && <p className="error">{error}</p>}
+      <form id="form-excluir-perfil" className="form" onSubmit={onSubmit}>
+        <PinField label="Digite o PIN para confirmar" value={pin} onChange={setPin} autoFocus />
+        {error && <p className="error">{error}</p>}
+      </form>
     </Modal>
   );
 }

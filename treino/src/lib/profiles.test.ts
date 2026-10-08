@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TreinoDB, createProfile, deleteProfile, exportDoc, exportProfileDoc, importDoc, saveSession, updateProfile } from '../db';
+import { TreinoDB, createProfile, defaultSettings, deleteProfile, exportDoc, exportProfileDoc, importDoc, saveSession, updateProfile } from '../db';
 import type { Profile, SessionRecord } from '../types';
 import {
   MAX_ATTEMPTS,
@@ -15,7 +15,7 @@ import {
   validatePin,
   verifyPin,
 } from './profiles';
-import { SYNC_FILE, emptyDoc, mergeDocs, parseDoc, type SyncDoc } from './sync';
+import { SYNC_FILE, adoptLegacy, emptyDoc, mergeDocs, parseDoc, type SyncDoc } from './sync';
 import { syncOnce } from './syncEngine';
 
 const session = (id: string, profileId?: string): SessionRecord => ({
@@ -112,21 +112,32 @@ describe('perfil logado no aparelho', () => {
 });
 
 describe('perfis no banco de dados', () => {
-  it('o primeiro perfil fica com os dados de antes dos perfis; o segundo, não', async () => {
-    const d = new TreinoDB('migracao');
-    await d.sessions.bulkPut([session('antigo'), session('outro')]);
-    await d.settings.put({ id: 'me', equipment: ['halteres'], durationMin: 45, restSec: 60, fasciitis: true, footSide: 'direito', weeklyGoal: 3, voice: true, sound: true, configured: true, updatedAt: 5 });
-
+  it('criar um perfil não pega dados de mais ninguém (nem os de antes dos perfis)', async () => {
+    const d = new TreinoDB('sem-adocao');
+    await d.sessions.put(session('antigo'));
+    await d.settings.put({ ...defaultSettings('me'), equipment: ['halteres'], updatedAt: 5 });
     const first = await createProfile(d, ' Rodrigo ', '1234');
     expect(first.name).toBe('Rodrigo');
-    expect((await d.sessions.toArray()).every((s) => s.profileId === first.id)).toBe(true);
-    expect(await d.settings.get(first.id)).toMatchObject({ equipment: ['halteres'], durationMin: 45, footSide: 'direito' });
+    expect((await d.sessions.get('antigo'))?.profileId).toBeUndefined();
+    expect(await d.settings.get(first.id)).toBeUndefined();
+    expect(await d.sessions.where('profileId').equals(first.id).count()).toBe(0);
+  });
 
-    await d.sessions.put(session('sem-dono'));
-    const second = await createProfile(d, 'Maria', '9999');
-    expect((await d.sessions.get('sem-dono'))?.profileId).toBeUndefined();
-    expect(await d.settings.get(second.id)).toBeUndefined();
-    expect(await d.sessions.where('profileId').equals(second.id).count()).toBe(0);
+  it('importar um backup de antes dos perfis põe os treinos e ajustes no perfil que importou', async () => {
+    const d = new TreinoDB('importa-v1');
+    const p = await createProfile(d, 'Rodrigo', '1234');
+    const v1 = {
+      app: 'treino',
+      version: 1,
+      settings: { ...defaultSettings('me'), equipment: ['barra'], configured: true, updatedAt: 5 },
+      sessions: [session('a'), session('b'), { ...session('c', 'outro-perfil') }],
+    };
+    const doc = adoptLegacy(parseDoc(JSON.stringify(v1)), p.id, 100);
+    expect(await importDoc(d, doc)).toBe(4);
+    const mine = await d.sessions.where('profileId').equals(p.id).toArray();
+    expect(mine.map((s) => s.id).sort()).toEqual(['a', 'b']);
+    expect((await d.settings.get(p.id))?.equipment).toEqual(['barra']);
+    expect((await d.sessions.get('c'))?.profileId).toBe('outro-perfil');
   });
 
   it('excluir o perfil apaga os treinos dele e o hash do PIN, e não mexe nos do outro', async () => {
@@ -172,6 +183,18 @@ describe('perfis na sincronização', () => {
     const base = { app: 'treino', version: 2, settings: [], sessions: [] };
     expect(() => parseDoc(JSON.stringify({ ...base, profiles: [{ id: 'x', name: 'X', updatedAt: 1 }] }))).toThrow('perfil');
     expect(parseDoc(JSON.stringify({ ...base, profiles: [{ id: 'x', name: 'X', updatedAt: 1, deleted: true }] })).profiles).toHaveLength(1);
+  });
+
+  it('a exclusão é definitiva: uma edição atrasada de outro aparelho não traz o perfil de volta', async () => {
+    const tombstone = profile('p1', 'Rodrigo', { deleted: true, updatedAt: 10 });
+    const lateEdit = profile('p1', 'Rodrigo Novo', { updatedAt: 20 });
+    expect(mergeDocs({ ...emptyDoc(), profiles: [tombstone] }, { ...emptyDoc(), profiles: [lateEdit] }).profiles[0].deleted).toBe(true);
+    expect(mergeDocs({ ...emptyDoc(), profiles: [lateEdit] }, { ...emptyDoc(), profiles: [tombstone] }).profiles[0].deleted).toBe(true);
+    // Também ao gravar no aparelho.
+    const d = new TreinoDB('exclusao-definitiva');
+    await d.profiles.put(tombstone);
+    expect(await importDoc(d, { ...emptyDoc(), profiles: [lateEdit] })).toBe(0);
+    expect((await d.profiles.get('p1'))?.deleted).toBe(true);
   });
 
   it('junta perfis criados em aparelhos diferentes e propaga exclusões', () => {

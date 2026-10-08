@@ -6,11 +6,13 @@ import { Avatar, PinField } from '../components/PinField';
 import { SyncCard } from '../components/SyncCard';
 import { createProfile, db, updateProfile } from '../db';
 import { useProfiles, useSyncStatus } from '../hooks/data';
+import { formatDate } from '../../../src/lib/dates';
 import {
   MAX_ATTEMPTS,
   NAME_MAX,
   clearFailures,
   hashPin,
+  liveProfiles,
   lockedFor,
   registerFailure,
   setCurrentProfileId,
@@ -19,10 +21,10 @@ import {
   verifyPin,
 } from '../lib/profiles';
 import { parseConnectInput } from '../lib/sync';
-import { getConfig } from '../lib/syncEngine';
+import { getConfig, syncNow } from '../lib/syncEngine';
 import type { Profile } from '../types';
 
-function CreateProfile({ profiles, onCancel }: { profiles: Profile[]; onCancel?: () => void }) {
+function CreateProfile({ profiles, syncing, onCancel }: { profiles: Profile[]; syncing: boolean; onCancel?: () => void }) {
   const login = useLogin();
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -36,6 +38,15 @@ function CreateProfile({ profiles, onCancel }: { profiles: Profile[]; onCancel?:
     if (problem) return setError(problem);
     setBusy(true);
     try {
+      // Com a sincronização ligada, busca antes os perfis criados em outros aparelhos (evita perfil repetido).
+      if (getConfig()) {
+        await syncNow();
+        const sameName = validateName(name, liveProfiles(await db.profiles.toArray()));
+        if (sameName) {
+          setBusy(false);
+          return setError(`${sameName} Ele veio de outro aparelho: entre com ele em vez de criar outro.`);
+        }
+      }
       const profile = await createProfile(db, name, pin);
       login(profile.id);
     } catch (err) {
@@ -57,8 +68,9 @@ function CreateProfile({ profiles, onCancel }: { profiles: Profile[]; onCancel?:
         <PinField label="Repita o PIN" value={confirm} onChange={setConfirm} autoComplete="new-password" />
       </div>
       {error && <p className="error">{error}</p>}
+      {syncing && <p className="muted small">Sincronizando… aguarde para ver os perfis que já existem em outros aparelhos.</p>}
       <div className="btn-row">
-        <button type="submit" className="btn" disabled={busy}>
+        <button type="submit" className="btn" disabled={busy || syncing}>
           {busy ? 'Criando…' : 'Criar perfil'}
         </button>
         {onCancel && (
@@ -111,29 +123,38 @@ function ForgotPin({ profile, onClose }: { profile: Profile; onClose: () => void
           <button type="button" className="btn secondary" onClick={onClose}>
             Cancelar
           </button>
-          <button type="button" className="btn" onClick={() => void submit()}>
+          <button type="submit" form="form-esqueci-pin" className="btn">
             Salvar novo PIN
           </button>
         </>
       }
     >
-      {config ? (
-        <label className="field">
-          <span>Token do GitHub ou código de conexão da sincronização</span>
-          <input type="password" autoComplete="off" spellCheck={false} value={proof} onChange={(e) => setProof(e.target.value)} />
-          <span className="hint">
-            É o token usado para ligar a sincronização (ou o código de “Conectar outro aparelho”). Quem tem a sincronização pode
-            redefinir o PIN.
-          </span>
-        </label>
-      ) : (
-        <p className="muted small">Este aparelho não está sincronizado, então o PIN pode ser redefinido aqui mesmo.</p>
-      )}
-      <div className="form-grid">
-        <PinField label="Novo PIN" value={pin} onChange={setPin} autoComplete="new-password" />
-        <PinField label="Repita o novo PIN" value={confirm} onChange={setConfirm} autoComplete="new-password" />
-      </div>
-      {error && <p className="error">{error}</p>}
+      <form
+        id="form-esqueci-pin"
+        className="form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        {config ? (
+          <label className="field">
+            <span>Token do GitHub ou código de conexão da sincronização</span>
+            <input type="password" autoComplete="off" spellCheck={false} value={proof} onChange={(e) => setProof(e.target.value)} />
+            <span className="hint">
+              É o token usado para ligar a sincronização (ou o código de “Conectar outro aparelho”). Quem tem a sincronização pode
+              redefinir o PIN.
+            </span>
+          </label>
+        ) : (
+          <p className="muted small">Este aparelho não está sincronizado, então o PIN pode ser redefinido aqui mesmo.</p>
+        )}
+        <div className="form-grid">
+          <PinField label="Novo PIN" value={pin} onChange={setPin} autoComplete="new-password" />
+          <PinField label="Repita o novo PIN" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+        </div>
+        {error && <p className="error">{error}</p>}
+      </form>
     </Modal>
   );
 }
@@ -175,29 +196,32 @@ function EnterPin({ profile, onBack }: { profile: Profile; onBack: () => void })
   };
 
   return (
-    <form className="card form" onSubmit={(e) => void submit(e)}>
-      <div className="profile-head">
-        <button type="button" className="icon-btn" aria-label="Voltar" onClick={onBack}>
-          <ChevronLeft size={20} />
+    <>
+      <form className="card form" onSubmit={(e) => void submit(e)}>
+        <div className="profile-head">
+          <button type="button" className="icon-btn" aria-label="Voltar" onClick={onBack}>
+            <ChevronLeft size={20} />
+          </button>
+          <Avatar name={profile.name} big />
+          <h2>{profile.name}</h2>
+        </div>
+        <PinField label="PIN" value={pin} onChange={setPin} autoFocus />
+        {error && <p className="error">{error}</p>}
+        {wait > 0 && (
+          <p className="error" role="status">
+            Muitas tentativas erradas ({MAX_ATTEMPTS} ou mais). Aguarde {wait} s.
+          </p>
+        )}
+        <button type="submit" className="btn block" disabled={busy || wait > 0 || pin.length < 4}>
+          {busy ? 'Verificando…' : 'Entrar'}
         </button>
-        <Avatar name={profile.name} big />
-        <h2>{profile.name}</h2>
-      </div>
-      <PinField label="PIN" value={pin} onChange={setPin} autoFocus />
-      {error && <p className="error">{error}</p>}
-      {wait > 0 && (
-        <p className="error" role="status">
-          Muitas tentativas erradas ({MAX_ATTEMPTS} ou mais). Aguarde {wait} s.
-        </p>
-      )}
-      <button type="submit" className="btn block" disabled={busy || wait > 0 || pin.length < 4}>
-        {busy ? 'Verificando…' : 'Entrar'}
-      </button>
-      <button type="button" className="btn ghost" onClick={() => setForgot(true)}>
-        Esqueci o PIN
-      </button>
+        <button type="button" className="btn ghost" onClick={() => setForgot(true)}>
+          Esqueci o PIN
+        </button>
+      </form>
+      {/* Fora do formulário do PIN: Enter no diálogo não pode virar tentativa de entrar. */}
       {forgot && <ForgotPin profile={profile} onClose={() => setForgot(false)} />}
-    </form>
+    </>
   );
 }
 
@@ -211,6 +235,8 @@ export function LoginPage() {
 
   if (!profiles) return null;
   const selected = profiles.find((p) => p.id === selectedId);
+  // Dois perfis com o mesmo nome (criados sem sincronizar): mostra a data para diferenciar.
+  const sameName = (p: Profile) => profiles.some((o) => o.id !== p.id && validateName(p.name, [o]));
 
   return (
     <div className="login">
@@ -223,7 +249,7 @@ export function LoginPage() {
       </header>
 
       {creating || !profiles.length ? (
-        <CreateProfile profiles={profiles} onCancel={profiles.length ? () => setCreating(false) : undefined} />
+        <CreateProfile profiles={profiles} syncing={sync.running} onCancel={profiles.length ? () => setCreating(false) : undefined} />
       ) : selected ? (
         <EnterPin key={selected.id} profile={selected} onBack={() => setSelectedId(undefined)} />
       ) : (
@@ -234,6 +260,7 @@ export function LoginPage() {
               <button key={p.id} type="button" className="profile-btn" onClick={() => setSelectedId(p.id)}>
                 <Avatar name={p.name} />
                 <span>{p.name}</span>
+                {sameName(p) && <small className="muted">criado em {formatDate(new Date(p.createdAt))}</small>}
               </button>
             ))}
             <button type="button" className="profile-btn add" onClick={() => setCreating(true)}>
@@ -246,12 +273,8 @@ export function LoginPage() {
         </section>
       )}
 
-      {sync.enabled ? (
-        <p className="sync-line">
-          <Cloud size={16} aria-hidden /> Sincronizado com a conta @{sync.login}: os perfis dos outros aparelhos aparecem aqui.
-        </p>
-      ) : showSync ? (
-        <SyncCard />
+      {sync.enabled || showSync ? (
+        <SyncCard onLoginScreen />
       ) : (
         <section className="card">
           <h2>

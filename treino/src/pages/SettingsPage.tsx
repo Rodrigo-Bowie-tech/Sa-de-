@@ -11,7 +11,7 @@ import { SyncCard } from '../components/SyncCard';
 import { TrainingSettings } from '../components/TrainingSettings';
 import { db, exportProfileDoc, importDoc } from '../db';
 import { useEditableSettings, useProfile } from '../hooks/data';
-import { parseDoc } from '../lib/sync';
+import { adoptLegacy, parseDoc } from '../lib/sync';
 import { requestSync } from '../lib/syncEngine';
 
 function InstallCard() {
@@ -62,7 +62,7 @@ export function SettingsPage() {
 
   const importBackup = async (file: File) => {
     try {
-      const doc = parseDoc(await file.text());
+      const doc = adoptLegacy(parseDoc(await file.text()), profile.id, Date.now());
       const changed = await importDoc(db, doc);
       requestSync(0);
       notify({ title: 'Backup importado', body: changed ? `${changed} registro(s) atualizados.` : 'Nada novo: os dados já estavam aqui.' });

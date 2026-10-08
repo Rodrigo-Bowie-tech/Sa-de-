@@ -39,6 +39,10 @@ describe('junção dos dados', () => {
     expect(mergeDocs(doc([session('a', 1)]), doc([edited])).sessions[0].footPain).toBe(3);
     expect(mergeDocs(doc([edited]), doc([deleted])).sessions[0].deleted).toBe(true);
     expect(mergeDocs(doc([deleted]), doc([edited])).sessions[0].deleted).toBe(true);
+    // Uma edição feita depois, num aparelho que ainda não sabia da exclusão, não traz o treino de volta.
+    const lateEdit = session('a', 20, { notes: 'editado depois' });
+    expect(mergeDocs(doc([deleted]), doc([lateEdit])).sessions[0].deleted).toBe(true);
+    expect(mergeDocs(doc([lateEdit]), doc([deleted])).sessions[0].deleted).toBe(true);
   });
 
   it('é comutativa (todos os aparelhos chegam ao mesmo resultado)', () => {

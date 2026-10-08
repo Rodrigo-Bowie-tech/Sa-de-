@@ -54,7 +54,11 @@ function ShareModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function SyncCard() {
+/**
+ * Na tela de entrada (sem login) não mostra o código QR de conexão, que leva o
+ * acesso à sincronização para outro aparelho.
+ */
+export function SyncCard({ onLoginScreen = false }: { onLoginScreen?: boolean }) {
   const status = useSyncStatus();
   const { notify } = useToasts();
   const [input, setInput] = useState('');
@@ -105,9 +109,11 @@ export function SyncCard() {
             <button type="button" className="btn" onClick={() => void syncNow()} disabled={status.running}>
               <RefreshCw size={16} aria-hidden /> Sincronizar agora
             </button>
-            <button type="button" className="btn secondary" onClick={() => setSharing(true)}>
-              <QrCode size={16} aria-hidden /> Conectar outro aparelho
-            </button>
+            {!onLoginScreen && (
+              <button type="button" className="btn secondary" onClick={() => setSharing(true)}>
+                <QrCode size={16} aria-hidden /> Conectar outro aparelho
+              </button>
+            )}
             <button
               type="button"
               className="btn danger"
