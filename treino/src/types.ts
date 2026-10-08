@@ -54,8 +54,27 @@ export interface RepsExercise extends BaseExercise {
 
 export type Exercise = TimedExercise | RepsExercise;
 
+/** PIN guardado só como hash (PBKDF2-SHA-256 com sal). */
+export interface PinHash {
+  salt: string;
+  hash: string;
+  iterations: number;
+}
+
+/** Perfil de uma pessoa que usa o app. Cada perfil tem seus ajustes e treinos. */
+export interface Profile {
+  id: string;
+  name: string;
+  pin: PinHash;
+  createdAt: string;
+  updatedAt: number;
+  /** Excluído (mantido para propagar a exclusão aos outros aparelhos). */
+  deleted?: boolean;
+}
+
 export interface Settings {
-  id: 'me';
+  /** Id do perfil dono destes ajustes. */
+  id: string;
   /** Equipamentos disponíveis (sem equipamento está sempre disponível). */
   equipment: Equipment[];
   /** Duração planejada do treino (o limite é sempre 60 min). */
@@ -89,6 +108,8 @@ export type EndReason = 'concluido' | 'limite' | 'encerrado';
 
 export interface SessionRecord {
   id: string;
+  /** Perfil que fez o treino (só falta em dados antigos, antes dos perfis). */
+  profileId?: string;
   startedAt: string;
   endedAt: string;
   /** Tempo de treino, sem as pausas. */

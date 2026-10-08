@@ -1,10 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { SessionRecord, Settings } from './types';
+import type { Profile, SessionRecord, Settings } from './types';
+import { hashPin } from './lib/profiles';
 import { isNewer, type SyncDoc } from './lib/sync';
 
 export class TreinoDB extends Dexie {
   sessions!: EntityTable<SessionRecord, 'id'>;
   settings!: EntityTable<Settings, 'id'>;
+  profiles!: EntityTable<Profile, 'id'>;
 
   constructor(name = 'treino') {
     super(name);
@@ -12,27 +14,37 @@ export class TreinoDB extends Dexie {
       sessions: 'id, startedAt',
       settings: 'id',
     });
+    this.version(2).stores({
+      sessions: 'id, startedAt, profileId',
+      settings: 'id',
+      profiles: 'id',
+    });
   }
 }
 
 export const db = new TreinoDB();
 
-export const DEFAULT_SETTINGS: Settings = {
-  id: 'me',
-  equipment: [],
-  durationMin: 60,
-  restSec: 60,
-  fasciitis: true,
-  footSide: 'ambos',
-  weeklyGoal: 3,
-  voice: true,
-  sound: true,
-  configured: false,
-  updatedAt: 0,
-};
+/** Id dos ajustes de antes dos perfis (passam para o primeiro perfil criado). */
+const LEGACY_SETTINGS_ID = 'me';
 
-export function withDefaults(settings: Settings | undefined): Settings {
-  return { ...DEFAULT_SETTINGS, ...settings };
+export function defaultSettings(profileId: string): Settings {
+  return {
+    id: profileId,
+    equipment: [],
+    durationMin: 60,
+    restSec: 60,
+    fasciitis: true,
+    footSide: 'ambos',
+    weeklyGoal: 3,
+    voice: true,
+    sound: true,
+    configured: false,
+    updatedAt: 0,
+  };
+}
+
+export function withDefaults(profileId: string, settings: Settings | undefined): Settings {
+  return { ...defaultSettings(profileId), ...settings, id: profileId };
 }
 
 /* ——— Aviso de alteração local (dispara a sincronização) ——— */
@@ -48,9 +60,9 @@ function emitLocalChange(): void {
   changeListeners.forEach((l) => l());
 }
 
-export async function saveSettings(target: TreinoDB, changes: Partial<Settings>): Promise<void> {
-  const current = withDefaults(await target.settings.get('me'));
-  await target.settings.put({ ...current, ...changes, id: 'me', updatedAt: Date.now() });
+export async function saveSettings(target: TreinoDB, profileId: string, changes: Partial<Settings>): Promise<void> {
+  const current = withDefaults(profileId, await target.settings.get(profileId));
+  await target.settings.put({ ...current, ...changes, id: profileId, updatedAt: Date.now() });
   emitLocalChange();
 }
 
@@ -67,11 +79,77 @@ export async function deleteSession(target: TreinoDB, id: string): Promise<void>
   emitLocalChange();
 }
 
+/* ——— Perfis ——— */
+
+/**
+ * Cria um perfil. Se for o único perfil, ele fica com os treinos e ajustes
+ * de antes dos perfis existirem.
+ */
+export async function createProfile(target: TreinoDB, name: string, pin: string): Promise<Profile> {
+  const now = Date.now();
+  const profile: Profile = {
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    pin: await hashPin(pin),
+    createdAt: new Date(now).toISOString(),
+    updatedAt: now,
+  };
+  await target.transaction('rw', target.profiles, target.sessions, target.settings, async () => {
+    await target.profiles.put(profile);
+    const others = (await target.profiles.toArray()).filter((p) => !p.deleted && p.id !== profile.id);
+    if (others.length) return;
+    const orphans = (await target.sessions.toArray()).filter((s) => !s.profileId);
+    if (orphans.length) await target.sessions.bulkPut(orphans.map((s) => ({ ...s, profileId: profile.id, updatedAt: now })));
+    const legacy = await target.settings.get(LEGACY_SETTINGS_ID);
+    if (legacy) await target.settings.put({ ...legacy, id: profile.id, updatedAt: now });
+  });
+  emitLocalChange();
+  return profile;
+}
+
+export async function updateProfile(target: TreinoDB, id: string, changes: Partial<Pick<Profile, 'name' | 'pin'>>): Promise<void> {
+  const current = await target.profiles.get(id);
+  if (!current || current.deleted) return;
+  await target.profiles.put({ ...current, ...changes, id, updatedAt: Date.now() });
+  emitLocalChange();
+}
+
+/** Exclui o perfil e todos os treinos dele (em todos os aparelhos sincronizados). */
+export async function deleteProfile(target: TreinoDB, id: string): Promise<void> {
+  const now = Date.now();
+  await target.transaction('rw', target.profiles, target.sessions, async () => {
+    const current = await target.profiles.get(id);
+    if (!current) return;
+    await target.profiles.put({ ...current, pin: { salt: '', hash: '', iterations: 0 }, deleted: true, updatedAt: now });
+    const own = await target.sessions.where('profileId').equals(id).toArray();
+    await target.sessions.bulkPut(
+      own
+        .filter((s) => !s.deleted)
+        .map((s) => ({ ...s, entries: [], notes: undefined, footPain: undefined, deleted: true, updatedAt: now })),
+    );
+  });
+  emitLocalChange();
+}
+
 /* ——— Exportação e importação (sincronização e backup) ——— */
 
 export async function exportDoc(target: TreinoDB): Promise<SyncDoc> {
-  const [settings, sessions] = await Promise.all([target.settings.get('me'), target.sessions.toArray()]);
-  return { app: 'treino', version: 1, ...(settings ? { settings } : {}), sessions };
+  const [profiles, settings, sessions] = await Promise.all([
+    target.profiles.toArray(),
+    target.settings.toArray(),
+    target.sessions.toArray(),
+  ]);
+  return { app: 'treino', version: 2, profiles, settings, sessions };
+}
+
+/** Só os dados de um perfil (para o backup de cada pessoa). */
+export async function exportProfileDoc(target: TreinoDB, profileId: string): Promise<SyncDoc> {
+  const [profile, settings, sessions] = await Promise.all([
+    target.profiles.get(profileId),
+    target.settings.get(profileId),
+    target.sessions.where('profileId').equals(profileId).toArray(),
+  ]);
+  return { app: 'treino', version: 2, profiles: profile ? [profile] : [], settings: settings ? [settings] : [], sessions };
 }
 
 /**
@@ -81,15 +159,17 @@ export async function exportDoc(target: TreinoDB): Promise<SyncDoc> {
  */
 export async function importDoc(target: TreinoDB, doc: SyncDoc): Promise<number> {
   let changed = 0;
-  await target.transaction('rw', target.sessions, target.settings, async () => {
-    if (doc.settings && isNewer(doc.settings, await target.settings.get('me'))) {
-      await target.settings.put({ ...doc.settings, id: 'me' });
-      changed++;
-    }
-    const existing = new Map((await target.sessions.bulkGet(doc.sessions.map((s) => s.id))).map((s, i) => [doc.sessions[i].id, s]));
-    const newer = doc.sessions.filter((s) => isNewer(s, existing.get(s.id)));
-    if (newer.length) await target.sessions.bulkPut(newer);
-    changed += newer.length;
+  await target.transaction('rw', target.profiles, target.settings, target.sessions, async () => {
+    const apply = async <T extends { id: string; updatedAt: number }>(table: EntityTable<T, 'id'>, rows: T[]) => {
+      if (!rows.length) return;
+      const existing = await table.bulkGet(rows.map((r) => r.id) as never[]);
+      const newer = rows.filter((r, i) => isNewer(r, existing[i] as T | undefined));
+      if (newer.length) await table.bulkPut(newer);
+      changed += newer.length;
+    };
+    await apply(target.profiles, doc.profiles);
+    await apply(target.settings, doc.settings);
+    await apply(target.sessions, doc.sessions);
   });
   return changed;
 }

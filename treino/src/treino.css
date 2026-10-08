@@ -385,3 +385,121 @@ details.how summary {
   width: 100%;
   height: auto;
 }
+
+/* ——— Perfis e entrada ——— */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.avatar.big {
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+}
+
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding-top: 12px;
+}
+
+.login-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.login-head img {
+  width: 56px;
+  height: 56px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.profile-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.profile-btn:hover {
+  border-color: var(--accent);
+}
+
+.profile-btn .avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+}
+
+.profile-btn.add {
+  background: transparent;
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pin-input {
+  font-size: 1.5rem !important;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.inline-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.inline-field .field {
+  flex: 1;
+}
+
+.nav .nav-profile {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .nav .nav-profile {
+    display: flex;
+    margin-top: auto;
+  }
+  .nav-profile .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+}

@@ -7,7 +7,7 @@ import { ExerciseInfo } from '../components/ExerciseInfo';
 import { PainScale } from '../components/PainScale';
 import { PHASE_LABELS, getExercise } from '../data/exercises';
 import { db, saveSession } from '../db';
-import { useSettings } from '../hooks/data';
+import { useProfile, useSettings } from '../hooks/data';
 import { loadActive, saveActive } from '../lib/activeStore';
 import { beep, clock, keepScreenOn, speak, spokenDuration, unlockAudio, vibrate } from '../lib/cues';
 import { fmtKg, summarizeSets } from '../lib/progress';
@@ -106,9 +106,10 @@ interface Finished {
 
 export function SessionPage() {
   const navigate = useNavigate();
+  const profile = useProfile();
   const settings = useSettings();
   const { notify } = useToasts();
-  const [session, setSession] = useState<ActiveSession | undefined>(loadActive);
+  const [session, setSession] = useState<ActiveSession | undefined>(() => loadActive(profile.id));
   const [now, setNow] = useState(() => Date.now());
   const [finished, setFinished] = useState<Finished | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -119,10 +120,13 @@ export function SessionPage() {
   const voiceOn = settings?.voice ?? true;
   const soundOn = settings?.sound ?? true;
 
-  const commit = useCallback((next: ActiveSession) => {
-    saveActive(next);
-    setSession(next);
-  }, []);
+  const commit = useCallback(
+    (next: ActiveSession) => {
+      saveActive(next.profileId, next);
+      setSession(next);
+    },
+    [],
+  );
 
   const act = (fn: (s: ActiveSession, now: number) => ActiveSession) => {
     unlockAudio();
@@ -132,7 +136,7 @@ export function SessionPage() {
   const finish = useCallback(
     (s: ActiveSession, reason: EndReason, at: number) => {
       const record = toRecord(s, at, reason);
-      saveActive(undefined);
+      saveActive(s.profileId, undefined);
       setSession(undefined);
       setFinished({ record });
       if (record.entries.length) void saveSession(db, record);
@@ -381,7 +385,7 @@ export function SessionPage() {
           <>
             <button type="button" className="btn danger" onClick={() => {
               if (!confirm('Descartar este treino? Nada dele será salvo.')) return;
-              saveActive(undefined);
+              saveActive(profile.id, undefined);
               setSession(undefined);
             }}>
               Descartar

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../db';
+import { defaultSettings } from '../db';
 import { EXERCISES, getExercise } from '../data/exercises';
 import type { Plan, SessionRecord, Settings } from '../types';
 import { buildPlan, isAvailable, phasesOf, prescription } from './plan';
 import { SESSION_LIMIT_SEC, WARMUP_SEC, estimateItem, expandPlan } from './steps';
 
-const settings = (changes: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, configured: true, ...changes });
+const settings = (changes: Partial<Settings> = {}): Settings => ({ ...defaultSettings('p1'), configured: true, ...changes });
 
 /** Simula ter feito o treino planejado (todas as séries), para testar a variação. */
 function done(plan: Plan, day: number): SessionRecord {

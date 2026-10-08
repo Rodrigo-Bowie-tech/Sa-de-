@@ -13,6 +13,8 @@ export interface LoggedSet {
 /** Treino em andamento (fica salvo no aparelho para sobreviver a um recarregamento). */
 export interface ActiveSession {
   id: string;
+  /** Perfil que está treinando. */
+  profileId: string;
   startedAt: number;
   plan: Plan;
   index: number;
@@ -29,8 +31,8 @@ export interface ActiveSession {
   warned: number[];
 }
 
-export function startSession(plan: Plan, now: number, id: string): ActiveSession {
-  return { id, startedAt: now, plan, index: 0, stepStartedAt: now, stepPausedMs: 0, extraSec: 0, pausedMs: 0, log: [], warned: [] };
+export function startSession(plan: Plan, now: number, id: string, profileId: string): ActiveSession {
+  return { id, profileId, startedAt: now, plan, index: 0, stepStartedAt: now, stepPausedMs: 0, extraSec: 0, pausedMs: 0, log: [], warned: [] };
 }
 
 const stepsCache = new WeakMap<Plan, Step[]>();
@@ -181,6 +183,7 @@ export function toRecord(s: ActiveSession, now: number, endedBy: EndReason): Ses
   const active = Math.min(activeMs(s, now), SESSION_LIMIT_SEC * 1000);
   return {
     id: s.id,
+    profileId: s.profileId,
     startedAt: new Date(s.startedAt).toISOString(),
     endedAt: new Date(now).toISOString(),
     activeSec: Math.round(active / 1000),

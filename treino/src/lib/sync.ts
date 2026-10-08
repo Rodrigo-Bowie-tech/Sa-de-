@@ -1,18 +1,29 @@
-import type { SessionRecord, Settings } from '../types';
+import type { Profile, SessionRecord, Settings } from '../types';
 
 /** Nome do arquivo guardado na gist do GitHub. */
 export const SYNC_FILE = 'treino-sync.json';
 
-/** Tudo o que é sincronizado entre os aparelhos. */
+/** Tudo o que é sincronizado entre os aparelhos: os perfis e os ajustes e treinos de cada um. */
 export interface SyncDoc {
   app: 'treino';
-  version: 1;
-  settings?: Settings;
+  version: 2;
+  profiles: Profile[];
+  /** Ajustes de cada perfil (o id é o do perfil). */
+  settings: Settings[];
   sessions: SessionRecord[];
 }
 
 export function emptyDoc(): SyncDoc {
-  return { app: 'treino', version: 1, sessions: [] };
+  return { app: 'treino', version: 2, profiles: [], settings: [], sessions: [] };
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+function validProfile(p: unknown): p is Profile {
+  if (!isObj(p) || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.updatedAt !== 'number') return false;
+  if (p.deleted) return true;
+  const pin = p.pin;
+  return isObj(pin) && typeof pin.salt === 'string' && typeof pin.hash === 'string' && typeof pin.iterations === 'number';
 }
 
 export function parseDoc(text: string): SyncDoc {
@@ -22,16 +33,31 @@ export function parseDoc(text: string): SyncDoc {
   } catch {
     throw new Error('Os dados não são um JSON válido.');
   }
-  const doc = parsed as Partial<SyncDoc>;
-  if (!doc || doc.app !== 'treino' || !Array.isArray(doc.sessions)) {
+  if (!isObj(parsed) || parsed.app !== 'treino' || !Array.isArray(parsed.sessions)) {
     throw new Error('Estes dados não são do app Treino.');
   }
-  for (const s of doc.sessions) {
-    if (!s || typeof s.id !== 'string' || typeof s.updatedAt !== 'number' || !Array.isArray(s.entries)) {
+  const sessions = parsed.sessions as unknown[];
+  for (const s of sessions) {
+    if (!isObj(s) || typeof s.id !== 'string' || typeof s.updatedAt !== 'number' || !Array.isArray(s.entries)) {
       throw new Error('Há um treino com dados inválidos.');
     }
   }
-  return { app: 'treino', version: 1, sessions: doc.sessions, ...(doc.settings ? { settings: doc.settings } : {}) };
+  // Versão 1 (antes dos perfis): um único registro de ajustes.
+  const rawSettings = Array.isArray(parsed.settings) ? parsed.settings : parsed.settings ? [parsed.settings] : [];
+  for (const st of rawSettings) {
+    if (!isObj(st) || typeof st.id !== 'string' || typeof st.updatedAt !== 'number') throw new Error('Há ajustes com dados inválidos.');
+  }
+  const profiles = Array.isArray(parsed.profiles) ? parsed.profiles : [];
+  for (const p of profiles) {
+    if (!validProfile(p)) throw new Error('Há um perfil com dados inválidos.');
+  }
+  return {
+    app: 'treino',
+    version: 2,
+    profiles: profiles as Profile[],
+    settings: rawSettings as Settings[],
+    sessions: sessions as SessionRecord[],
+  };
 }
 
 /** JSON com as chaves em ordem alfabética (para comparar registros vindos de lugares diferentes). */
@@ -55,24 +81,35 @@ export function isNewer<T extends { updatedAt: number }>(candidate: T, current: 
   return stableStringify(candidate) > stableStringify(current);
 }
 
+/** Junta duas listas de registros pelo id, ficando com a versão mais nova de cada um. */
+function mergeById<T extends { id: string; updatedAt: number }>(a: T[], b: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const r of [...a, ...b]) {
+    if (isNewer(r, byId.get(r.id))) byId.set(r.id, r);
+  }
+  return [...byId.values()];
+}
+
+const byIdOrder = (x: { id: string }, y: { id: string }) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+
 /** Junta dois conjuntos de dados registro a registro (exclusões incluídas). */
 export function mergeDocs(a: SyncDoc, b: SyncDoc): SyncDoc {
-  const sessions = new Map<string, SessionRecord>();
-  for (const s of [...a.sessions, ...b.sessions]) {
-    if (isNewer(s, sessions.get(s.id))) sessions.set(s.id, s);
-  }
-  let settings = a.settings;
-  if (b.settings && isNewer(b.settings, settings)) settings = b.settings;
   return {
     app: 'treino',
-    version: 1,
-    ...(settings ? { settings } : {}),
-    sessions: [...sessions.values()].sort((x, y) => x.startedAt.localeCompare(y.startedAt) || x.id.localeCompare(y.id)),
+    version: 2,
+    profiles: mergeById(a.profiles, b.profiles).sort(byIdOrder),
+    settings: mergeById(a.settings, b.settings).sort(byIdOrder),
+    sessions: mergeById(a.sessions, b.sessions).sort((x, y) => x.startedAt.localeCompare(y.startedAt) || byIdOrder(x, y)),
   };
 }
 
 export function docsEqual(a: SyncDoc, b: SyncDoc): boolean {
-  const norm = (d: SyncDoc) => ({ ...d, sessions: [...d.sessions].sort((x, y) => x.id.localeCompare(y.id)) });
+  const norm = (d: SyncDoc) => ({
+    ...d,
+    profiles: [...d.profiles].sort(byIdOrder),
+    settings: [...d.settings].sort(byIdOrder),
+    sessions: [...d.sessions].sort(byIdOrder),
+  });
   return stableStringify(norm(a)) === stableStringify(norm(b));
 }
 

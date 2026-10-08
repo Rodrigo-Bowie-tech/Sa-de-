@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, TreinoDB, deleteSession, exportDoc, importDoc, saveSession, saveSettings } from '../db';
+import { TreinoDB, defaultSettings, deleteSession, exportDoc, importDoc, saveSession, saveSettings } from '../db';
 import type { SessionRecord } from '../types';
 import { SYNC_FILE, docsEqual, emptyDoc, encodeConnectCode, mergeDocs, parseConnectInput, parseDoc, type SyncDoc } from './sync';
 import { SyncError, findGist, readGist } from './gist';
@@ -14,15 +14,17 @@ const session = (id: string, updatedAt: number, extra: Partial<SessionRecord> = 
   plannedMin: 60,
   endedBy: 'concluido',
   entries: [{ exerciseId: 'bi-rosca-direta', phase: 'bracos', sets: [{ reps: 10, load: 8 }] }],
+  profileId: 'p1',
   updatedAt,
   ...extra,
 });
 
-const doc = (sessions: SessionRecord[], settings?: SyncDoc['settings']): SyncDoc => ({
+const doc = (sessions: SessionRecord[], settings: SyncDoc['settings'] = [], profiles: SyncDoc['profiles'] = []): SyncDoc => ({
   app: 'treino',
-  version: 1,
+  version: 2,
+  profiles,
+  settings,
   sessions,
-  ...(settings ? { settings } : {}),
 });
 
 describe('junção dos dados', () => {
@@ -40,10 +42,16 @@ describe('junção dos dados', () => {
   });
 
   it('é comutativa (todos os aparelhos chegam ao mesmo resultado)', () => {
-    const a = doc([session('a', 1), session('bb', 7, { notes: 'x' })], { ...DEFAULT_SETTINGS, durationMin: 45, updatedAt: 3 });
-    const b = doc([session('bb', 7, { notes: 'y' }), session('ccc', 2)], { ...DEFAULT_SETTINGS, durationMin: 30, updatedAt: 4 });
+    const a = doc([session('a', 1), session('bb', 7, { notes: 'x' })], [{ ...defaultSettings('p1'), durationMin: 45, updatedAt: 3 }]);
+    const b = doc(
+      [session('bb', 7, { notes: 'y' }), session('ccc', 2)],
+      [{ ...defaultSettings('p1'), durationMin: 30, updatedAt: 4 }, { ...defaultSettings('p2'), updatedAt: 1 }],
+    );
     expect(docsEqual(mergeDocs(a, b), mergeDocs(b, a))).toBe(true);
-    expect(mergeDocs(a, b).settings?.durationMin).toBe(30);
+    expect(mergeDocs(a, b).settings.map((s) => [s.id, s.durationMin])).toEqual([
+      ['p1', 30],
+      ['p2', 60],
+    ]);
   });
 
   it('compara documentos sem depender da ordem das chaves', () => {
@@ -125,7 +133,7 @@ describe('sincronização pela gist', () => {
     const config = { token: 'tok', gistId: 'g1', login: 'eu' };
 
     await saveSession(phone, session('a', 0));
-    await saveSettings(phone, { equipment: ['halteres'], configured: true });
+    await saveSettings(phone, 'p1', { equipment: ['halteres'], configured: true });
     await saveSession(pc, session('bb', 0));
 
     expect((await syncOnce(phone, config)).pushed).toBe(true);
@@ -136,7 +144,7 @@ describe('sincronização pela gist', () => {
     const ids = async (d: TreinoDB) => (await d.sessions.toArray()).map((s) => s.id).sort();
     expect(await ids(phone)).toEqual(['a', 'bb']);
     expect(await ids(pc)).toEqual(['a', 'bb']);
-    expect((await pc.settings.get('me'))?.equipment).toEqual(['halteres']);
+    expect((await pc.settings.get('p1'))?.equipment).toEqual(['halteres']);
     expect(gh.remote().sessions).toHaveLength(2);
 
     // Sem mudanças, não grava de novo.

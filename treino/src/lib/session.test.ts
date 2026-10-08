@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../db';
+import { defaultSettings } from '../db';
 import { buildPlan } from './plan';
 import {
   abandonedRecord,
@@ -25,8 +25,8 @@ import {
 import { SESSION_LIMIT_SEC, WARMUP_SEC } from './steps';
 
 const T0 = Date.UTC(2026, 9, 8, 18);
-const plan = buildPlan({ ...DEFAULT_SETTINGS, configured: true, equipment: ['halteres'] }, []);
-const start = () => startSession(plan, T0, 'abc');
+const plan = buildPlan({ ...defaultSettings('p1'), configured: true, equipment: ['halteres'] }, []);
+const start = () => startSession(plan, T0, 'abc', 'p1');
 const sec = (n: number) => n * 1000;
 
 /** Avança o relógio até a primeira série de repetições. */
@@ -136,6 +136,7 @@ describe('treino em andamento', () => {
       { reps: 12, load: 6 },
     ]);
     expect(record.startedAt).toBe(new Date(T0).toISOString());
+    expect(record.profileId).toBe('p1');
     expect(stepsOf(s).length).toBeGreaterThan(plan.items.length);
   });
 

@@ -46,8 +46,11 @@ Segundo app instalável, publicado junto com o Minha Saúde em `https://<usuario
 | **Progressão** | Meta de cada série pela última vez que você fez o exercício: mantém o peso até completar o máximo de repetições em todas as séries, depois sugere subir o peso. |
 | **Histórico** | Treinos, gráfico de evolução de carga por exercício e da dor no pé (0 a 10, registrada ao fim de cada treino). |
 | **Exercícios** | Biblioteca com passo a passo, ritmo, material, dicas e cuidados de cada exercício, e orientações gerais para a fascite. Funciona com halteres, elástico, barra fixa ou sem equipamento (peso do corpo, cadeira, toalha, mochila, garrafas). |
-| **Sincronização** | Celular e computador com os mesmos treinos e ajustes. Os dados ficam numa **gist secreta da sua conta do GitHub** (sem servidor próprio): crie um token com a permissão `gist`, cole em **Ajustes → Sincronização** e conecte os outros aparelhos pelo **código QR** ou colando o código. Sincroniza ao abrir o app, após cada alteração e a cada 5 min; funciona offline e envia depois. |
+| **Perfis com PIN** | Cada pessoa tem seu perfil (nome + PIN de 4 a 8 números), com treinos, histórico, ajustes, treino em andamento e progressão próprios. Ao abrir o app, escolha o perfil e digite o PIN; o login fica salvo no aparelho até tocar em **Sair**. Depois de 5 PINs errados, o app espera 30 s. Em **Ajustes → Perfil**: trocar nome e PIN, sair/trocar de perfil e excluir o perfil (apaga os treinos dele em todos os aparelhos). |
+| **Sincronização** | Celular e computador com os mesmos perfis, treinos e ajustes. Os dados de todos os perfis ficam numa **gist secreta da sua conta do GitHub** (sem servidor próprio): crie um token com a permissão `gist`, cole em **Ajustes → Sincronização** e conecte os outros aparelhos pelo **código QR** ou colando o código. Sincroniza ao abrir o app, após cada alteração e a cada 5 min; funciona offline e envia depois. |
 
+> **Sobre o PIN:** ele separa os perfis dentro do app, mas os dados de todos os perfis ficam juntos na mesma gist (o PIN é guardado só como hash). Quem tiver o token ou o código de conexão da sincronização consegue redefinir um PIN esquecido (“Esqueci o PIN”).
+>
 > No iPhone, o app instalado na Tela de Início não compartilha dados com o Safari: conecte a sincronização de dentro do app instalado (colando o código). As orientações sobre fascite são gerais e não substituem a avaliação de um médico ou fisioterapeuta.
 
 ## Desenvolvimento

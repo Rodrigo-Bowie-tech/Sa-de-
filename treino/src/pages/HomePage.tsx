@@ -8,7 +8,7 @@ import { capitalize } from '../../../src/lib/format';
 import { PlanView, minutes } from '../components/PlanView';
 import { TrainingSettings } from '../components/TrainingSettings';
 import { db, saveSession } from '../db';
-import { useAllSessions, useEditableSettings, useSyncStatus } from '../hooks/data';
+import { useAllSessions, useEditableSettings, useProfile, useSyncStatus } from '../hooks/data';
 import { loadActive, saveActive } from '../lib/activeStore';
 import { unlockAudio } from '../lib/cues';
 import { buildPlan } from '../lib/plan';
@@ -29,11 +29,12 @@ function thisWeek(sessions: SessionRecord[], now: Date): number {
 }
 
 export function HomePage() {
+  const profile = useProfile();
   const [settings, changeSettings] = useEditableSettings();
   const all = useAllSessions();
   const sync = useSyncStatus();
   const navigate = useNavigate();
-  const [active, setActive] = useState(loadActive);
+  const [active, setActive] = useState(() => loadActive(profile.id));
   const plan = useMemo(() => (settings && all ? buildPlan(settings, all) : undefined), [settings, all]);
 
   if (!settings || !all || !plan) return null;
@@ -46,13 +47,13 @@ export function HomePage() {
 
   const start = () => {
     unlockAudio();
-    saveActive(startSession(plan, Date.now(), crypto.randomUUID()));
+    saveActive(profile.id, startSession(plan, Date.now(), crypto.randomUUID(), profile.id));
     navigate('/sessao');
   };
 
   return (
     <>
-      <PageHeader title="Treino de hoje" subtitle={capitalize(formatLongDate(now))} />
+      <PageHeader title={`Olá, ${profile.name}`} subtitle={`${capitalize(formatLongDate(now))} · treino de hoje`} />
 
       {active && (
         <div className="alert warning">
@@ -72,7 +73,7 @@ export function HomePage() {
                   onClick={() => {
                     const record = abandonedRecord(active, Date.now());
                     if (record.entries.length) void saveSession(db, record);
-                    saveActive(undefined);
+                    saveActive(profile.id, undefined);
                     setActive(undefined);
                   }}
                 >
@@ -88,7 +89,7 @@ export function HomePage() {
                 className="btn small danger"
                 onClick={() => {
                   if (!confirm('Descartar o treino em andamento? Nada dele será salvo.')) return;
-                  saveActive(undefined);
+                  saveActive(profile.id, undefined);
                   setActive(undefined);
                 }}
               >

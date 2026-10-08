@@ -6,10 +6,11 @@ import { isStandalone, useInstallPrompt } from '../../../src/hooks/useInstallPro
 import { downloadFile } from '../../../src/lib/download';
 import { toDateKey } from '../../../src/lib/dates';
 import { getTheme, setTheme, type ThemeChoice } from '../../../src/lib/theme';
+import { ProfileCard } from '../components/ProfileCard';
 import { SyncCard } from '../components/SyncCard';
 import { TrainingSettings } from '../components/TrainingSettings';
-import { db, exportDoc, importDoc } from '../db';
-import { useEditableSettings } from '../hooks/data';
+import { db, exportProfileDoc, importDoc } from '../db';
+import { useEditableSettings, useProfile } from '../hooks/data';
 import { parseDoc } from '../lib/sync';
 import { requestSync } from '../lib/syncEngine';
 
@@ -45,6 +46,7 @@ function InstallCard() {
 }
 
 export function SettingsPage() {
+  const profile = useProfile();
   const [settings, changeSettings] = useEditableSettings();
   const { notify } = useToasts();
   const [theme, setThemeState] = useState<ThemeChoice>(getTheme);
@@ -53,8 +55,9 @@ export function SettingsPage() {
   if (!settings) return null;
 
   const exportBackup = async () => {
-    const doc = await exportDoc(db);
-    downloadFile(`treino-backup-${toDateKey(new Date())}.json`, JSON.stringify(doc, null, 2), 'application/json');
+    const doc = await exportProfileDoc(db, profile.id);
+    const slug = profile.name.normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'perfil';
+    downloadFile(`treino-${slug}-${toDateKey(new Date())}.json`, JSON.stringify(doc, null, 2), 'application/json');
   };
 
   const importBackup = async (file: File) => {
@@ -71,6 +74,8 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="Ajustes" />
+
+      <ProfileCard />
 
       <SyncCard />
 
@@ -122,7 +127,7 @@ export function SettingsPage() {
 
       <section className="card">
         <h2>Backup</h2>
-        <p className="muted small">Arquivo com todos os treinos e ajustes. Importar junta o arquivo aos dados atuais, sem apagar nada.</p>
+        <p className="muted small">Arquivo com os seus treinos e ajustes (só do seu perfil). Importar junta o arquivo aos dados atuais, sem apagar nada.</p>
         <div className="btn-row">
           <button type="button" className="btn secondary" onClick={() => void exportBackup()}>
             <Download size={16} aria-hidden /> Exportar
